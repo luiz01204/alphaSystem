@@ -1,74 +1,59 @@
 package br.com.alphaclean.alphaSystem.controllers;
 
+import java.util.List;
+
+import jakarta.transaction.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.ModelAndView;
 import br.com.alphaclean.alphaSystem.Repository.ClientRepository;
 import br.com.alphaclean.alphaSystem.dto.DataClient;
 import br.com.alphaclean.alphaSystem.model.Client;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.List;
-
-@Controller
+@RestController
 @RequestMapping("client")
 public class ClientController {
     @Autowired
     ClientRepository repository;
 
-    @GetMapping("register")
-    public ModelAndView formRegister(DataClient dataClient){
-        ModelAndView mv = new ModelAndView("client/register");
-        return mv;
+
+    @PostMapping
+    @Transactional
+    public ResponseEntity<Void> register(@Valid DataClient data, UriComponentsBuilder uriBuilder){
+        var client = new Client(data);
+        repository.save(client);
+        var uri = uriBuilder.path("client/{id}").buildAndExpand(client.getId()).toUri();
+        return ResponseEntity.created(uri).build();
     }
 
-    @PostMapping("newClient")
-    public ModelAndView register(@Valid DataClient data, BindingResult result){
-        if (result.hasErrors()){
-            ModelAndView mv = new ModelAndView("redirect:/client/register");
-            return mv;
-        }
-
-        ModelAndView mv = new ModelAndView("redirect:/client/consultAll");
-        repository.save(new Client(data));
-        return mv;
-    }
-
-    @GetMapping("consultAll")
-    public ModelAndView consultAll(Model model){
+    @GetMapping
+    public ResponseEntity<List> consultAll(){
         List<Client> clients = repository.findAll();
-        model.addAttribute("client", clients);
-        ModelAndView mv = new ModelAndView("client/consultAll");
-        return mv;
+        return ResponseEntity.ok().body(clients);
     }
 
-    @GetMapping("delete/{id}")
-    public ModelAndView deleteClient(@PathVariable Long id){
-        ModelAndView mv = new ModelAndView("redirect:/client/consultAll");
-        repository.deleteById(id);
-        return mv;
-    }
-
-    @GetMapping("/edit/{id}")
-    public ModelAndView editForm(@PathVariable Long id, Model model){
+    @GetMapping("/{id}")
+    public ResponseEntity<Client> consultForId(@PathVariable Long id){
         var client = repository.getReferenceById(id);
-        model.addAttribute("client", client);
-
-        ModelAndView mv = new ModelAndView("client/edit");
-        return mv;
+        return ResponseEntity.ok().body(client);
     }
 
-    @PostMapping("save/{id}")
-    public ModelAndView saveEdit(@PathVariable Long id, @Valid DataClient data){
+    @DeleteMapping("delete/{id}")
+    @Transactional
+    public ResponseEntity<Void> deleteClient(@PathVariable Long id){
+        repository.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}")
+    @Transactional
+    public ResponseEntity<Client> editData(@RequestBody @Valid DataClient data, @PathVariable Long id ){
         var client = repository.getReferenceById(id);
         client.editData(data);
-        repository.save(client);
-
-        ModelAndView mv = new ModelAndView("redirect:/client/consultAll");
-        return mv;
-
+        return ResponseEntity.ok().build();
     }
 }
